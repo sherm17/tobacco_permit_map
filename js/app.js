@@ -6,6 +6,7 @@ var theServerName = window.location.host;
 if (window.location.protocol == "https:") {
    theProtocol= "https";
 }
+var test;
 
 require([
 "esri/map",
@@ -64,17 +65,17 @@ Query, arrayUtils, array,
 ImageParameters, BasemapToggle, SimpleRenderer, SpatialReference, domConstruct,
 query, domReady, connect
 ) {
-  var identifyTask, identifyParams, apiAddress, isParcel;
+  var identifyTask, identifyParams, apiReturnAddresss, isParcel;
 
- //esriConfig.defaults.geometryService = new GeometryService("https://utility.arcgisonline.com/ArcGIS/rest/services/Geometry/GeometryServer");
+ esriConfig.defaults.geometryService = new GeometryService("https://utility.arcgisonline.com/ArcGIS/rest/services/Geometry/GeometryServer");
   // esriConfig.defaults.geometryService = new esri.tasks.GeometryService("//sfplanninggis.org/arcgis/rest/services/Utilities/Geometry/GeometryServer");
-  esriConfig.defaults.geometryService = new esri.tasks.GeometryService("https://"+ theServerName +"/arcgiswa/rest/services/Utilities/Geometry/GeometryServer");
+  // esriConfig.defaults.geometryService = new esri.tasks.GeometryService("https://"+ theServerName +"/arcgiswa/rest/services/Utilities/Geometry/GeometryServer");
   //esri.config.defaults.io.alwaysUseProxy = false;
 
-	esriConfig.defaults.io.proxyRules.push({
-		urlPrefix: theServerName +"/arcgiswa/rest/services",
-		proxyUrl: "//" + theServerName + "/proxy/DotNet/proxy.ashx"
-	});
+	// esriConfig.defaults.io.proxyRules.push({
+	// 	urlPrefix: theServerName +"/arcgiswa/rest/services",
+	// 	proxyUrl: "//" + theServerName + "/proxy/DotNet/proxy.ashx"
+	// });
 
   var map = new Map("map", {
     basemap: "gray-vector",
@@ -191,7 +192,6 @@ query, domReady, connect
   */
   function throttleSubmit(myAdd) {
     // Boolean to check if clicking or parcel or entering a address in the input box
-    isParcel = false;
     if (new Date() - lastCall < 3000) return false;
     else {
       lastCall = new Date();
@@ -212,20 +212,23 @@ query, domReady, connect
       cancelSpinner();
 
       jsonData = JSON.parse(data);
-
       console.log(jsonData)
-      if (isParcel) {
-        apiAddress = address;
-      } else {
-        apiAddress = jsonData.features[0].attributes.ADDRESSSIMPLE;
-      }
+
       if (data['error']) {
           console.error('Geocode failed: ' + data['error'].message);
           return;
       }
       if (jsonData.features && jsonData.features.length > 0) {
         var currAddress = jsonData.features[0].attributes.ADDRESSSIMPLE;
+
         if (theTempLayer) map.removeLayer(theTempLayer)
+        if (jsonData.fieldAliases.ADDRESSSIMPLE) {
+          isParcel = false;
+          apiReturnAddresss = jsonData.features[0].attributes.ADDRESSSIMPLE;
+        } else {
+          apiReturnAddresss = jsonData.features[0].attributes.blklot;
+          isParcel = true;
+        }
 
         addTempLayer(jsonData);
       } else {
@@ -301,7 +304,6 @@ query, domReady, connect
 
     var graphic = new Graphic(geometry, symbol);
     graphic.attributes = "buffer";
-    // console.log(graphic)
     map.graphics.add(graphic);
 
     params = new BufferParameters();
@@ -326,7 +328,6 @@ query, domReady, connect
     if(map){
       map.graphics.clear();
     }
-    // console.log(bufferedGeometries)
     var symbol = new SimpleLineSymbol(
       SimpleLineSymbol.STYLE_SOLID,
       new Color([66,134,244]),
@@ -336,14 +337,12 @@ query, domReady, connect
     array.forEach(bufferedGeometries, function(geometry) {
       var graphic = new Graphic(geometry, symbol);
       bufferedGeometry.push(graphic)
-      // map.graphics.add(graphic);
     });
     map.graphics.add(bufferedGeometry[0]);
     map.setExtent(bufferedGeometry[0].geometry.getExtent().expand(3))
   }
 
   $('#print').on('click', function() {
-    console.log("api address is -------- " + apiAddress)
     callLoadSpinner();
 	  //console.log(dynamicMap.visibleLayers)
   	var theprintparams = new esri.tasks.PrintParameters();
@@ -368,7 +367,7 @@ query, domReady, connect
   function printResultCallback(result) {
     var returnURL = result.url;
     printHTML+="<img src='" + returnURL +"'>"
-    console.log("apiaddress is " + apiAddress)
+    console.log("apiReturnAddresss is " + apiReturnAddresss)
 
     var myWindow = window.open('', 'PRINT');
     var printHTML = "<!DOCTYPE html>";
@@ -384,16 +383,12 @@ query, domReady, connect
       printHTML+="<link rel='stylesheet' href='js/Messi-master/messi.min.css' />"
       printHTML+="</head>"
 
-      // printHTML+="<div id='mapTitle'>"
-      // printHTML+= "<b>Tobacco Permit Map</b>";
-      // printHTML+="</div>"
-
       printHTML+="<div id='printTitle'>"
       printHTML+= "<b> Tobacco Permit Map For - ";
       if (isParcel) {
         printHTML += "Block Lot "
       }
-      printHTML+= apiAddress + "</b>";
+      printHTML+= apiReturnAddresss + "</b>";
       printHTML+="</div>"
 
       printHTML+="<div id='legend_2'>"
