@@ -5,9 +5,6 @@ html, body, #map {
   width: 100%;
 }
 
-#map{
-  position: relative;
-}
 
 #searchbox {
   position:absolute;
@@ -59,20 +56,6 @@ html, body, #map {
   text-align: left;
 }
 
-#legend_2 {
-  /* width: 300px; */
-  /* position: fixed; */
-  top: 20px;
-  left: 20px;
-  z-index: 1;
-  background-color: white;
-  padding: 5px;
-  border-radius: 5px;
-  font-family:Tahoma, Geneva, sans-serif;
-  font-size: 15px;
-  text-align: left;
-}
-
 #legend-container{
   padding: 15px 15px;
 }
@@ -81,10 +64,7 @@ html, body, #map {
   height: 25px;
   width: 25px;
   /* 0, 112, 255 */
-  border: 2px rgb(0, 112, 255) solid;
   background-color: rgb(0, 112, 255);
-  -webkit-print-color-adjust: exact;
-
   /* 247, 112, 8 */
 }
 
@@ -92,63 +72,19 @@ html, body, #map {
   height: 25px;
   width: 25px;
   /* 0, 112, 255 */
-  border: 2px rgb(247, 112, 8) solid;
-  border-radius: 50%;
   background-color: rgb(247, 112, 8);
-  -webkit-print-color-adjust: exact;
   /* 247, 112, 8 */
 }
 
-#key-symbol-3{
-  -webkit-print-color-adjust: exact;
-  height: 25px;
-  width: 25px;
-  border: 2px black solid;
-  background-color: rgb(145, 143, 143)
-}
-
-.esriPopupWrapper .maximize {
-  display: none;
-}
-.esriPopupWrapper .sizer{
-  width: 300px;
-  /* height: 150px; */
-}
-.esriPopupWrapper 
-
-#key-symbol-4{
-  height: 25px;
-  width: 29px;
-}
-
-#printTitle{
-  text-align: center;
-  font-family: arial;
-  font-size: 20px;
-}
-
-
-.legend-element{
+#legend-element-1, #legend-element-2{
   display: flex;
   position: relative;
 }
 
-
-
-#key-phrase-1, #key-phrase-2, #key-phrase-3, #key-phrase-4{
+#key-phrase-1, #key-phrase-2{
   padding-left: 10px;
   position: relative;
   top: -50%;
-}
-
-hr {
-    display: block;
-    height: 1.5px;
-    width: 25px;
-    border: 0;
-    border-top: 1px solid black;
-    margin: 1em 0;
-    padding: 0;
 }
 
 ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
@@ -162,28 +98,4 @@ hr {
 
 ::-ms-input-placeholder { /* Microsoft Edge */
   color: black;
-}
-
-.print-icon{
-  font-size: 40px;
-  position: absolute;
-  right: 4%;
-  top: 2%;
-  z-index: 2;
-}
-
-#spinnerLargeMap{
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 10;
-}
-
-.disabledDIV {
-  pointer-events: none;
-  opacity: 0.4;
-}
-
-.titleButton .maximize {
-  display: none
 }

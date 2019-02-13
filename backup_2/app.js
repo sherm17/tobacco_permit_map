@@ -21,8 +21,6 @@ require([
 "esri/tasks/IdentifyTask",
 "esri/tasks/IdentifyParameters",
 "esri/dijit/Popup",
-"esri/dijit/PopupTemplate",
-
 "esri/layers/FeatureLayer",
 
 "esri/graphic",
@@ -46,6 +44,9 @@ require([
 "dojo/_base/array",
 "dojo/_base/array",
 
+
+
+
 "esri/layers/ImageParameters",
 "esri/dijit/BasemapToggle",
 "esri/renderers/SimpleRenderer",
@@ -56,43 +57,32 @@ require([
 "dojo/_base/connect",
 "dojo/domReady!"
 ], function (
-Map, InfoTemplate, GeometryService, ArcGISDynamicMapServiceLayer,
+Map, infoTemplate, GeometryService, ArcGISDynamicMapServiceLayer,
 BufferParameters,SimpleFillSymbol,SimpleLineSymbol, PictureMarkerSymbol, IdentifyTask,
-IdentifyParameters, Popup, PopupTemplate, FeatureLayer, Graphic, normalizeUtils, Point,
+IdentifyParameters, Popup, FeatureLayer, Graphic, normalizeUtils, Point,
 SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, LabelClass, Print, PrintTask, PrintParameters, Color, TextSymbol,
 Query, arrayUtils, array,
 ImageParameters, BasemapToggle, SimpleRenderer, SpatialReference, domConstruct,
 query, domReady, connect
 ) {
-  var identifyTask, identifyParams, apiReturnAddresss, isParcel, popup, map, tobaccoPointLayer, schoolLayer, infoTemplate;
+  var identifyTask, identifyParams, apiReturnAddresss, isParcel;
 
- // esriConfig.defaults.geometryService = new GeometryService("https://utility.arcgisonline.com/ArcGIS/rest/services/Geometry/GeometryServer");
+ esriConfig.defaults.geometryService = new GeometryService("https://utility.arcgisonline.com/ArcGIS/rest/services/Geometry/GeometryServer");
   // esriConfig.defaults.geometryService = new esri.tasks.GeometryService("//sfplanninggis.org/arcgis/rest/services/Utilities/Geometry/GeometryServer");
-  esriConfig.defaults.geometryService = new esri.tasks.GeometryService("https://"+ theServerName +"/arcgiswa/rest/services/Utilities/Geometry/GeometryServer");
-  esri.config.defaults.io.alwaysUseProxy = false;
+  // esriConfig.defaults.geometryService = new esri.tasks.GeometryService("https://"+ theServerName +"/arcgiswa/rest/services/Utilities/Geometry/GeometryServer");
+  //esri.config.defaults.io.alwaysUseProxy = false;
 
-	esriConfig.defaults.io.proxyRules.push({
-		urlPrefix: theServerName +"/arcgiswa/rest/services",
-		proxyUrl: "//" + theServerName + "/proxy/DotNet/proxy.ashx"
-  });
-  
+	// esriConfig.defaults.io.proxyRules.push({
+	// 	urlPrefix: theServerName +"/arcgiswa/rest/services",
+	// 	proxyUrl: "//" + theServerName + "/proxy/DotNet/proxy.ashx"
+	// });
 
-  popup = new Popup({
-    fillSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID,
-      new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID,
-        new Color([255, 0, 0]), 2), new Color([0, 255, 0, 0.25]))
-  }, domConstruct.create("div"));
-
-  map = new Map("map", {
+  var map = new Map("map", {
     basemap: "gray-vector",
     center: [-122.45, 37.76],
     zoom: 12,
-    showLabels: true,
-    infoWindow: popup,
-    isReference: true
+    showLabels: true
   });
-
-
 
   initializeMap();
 
@@ -102,20 +92,14 @@ query, domReady, connect
   });
 
 
-  // $('#layer0CheckBox').on("change", updateLayerVisibility)
-  // $('#layer3CheckBox').on("change", updateLayerVisibility)
-  $(".list_item").on("change", updateLayerVisibility)
-
+  $('#layer0CheckBox').on("change", updateLayerVisibility)
+  $('#layer3CheckBox').on("change", updateLayerVisibility)
 
   map.on("load", mapReady);
 
   var symbol = new esri.symbol.SimpleFillSymbol(esri.symbol.SimpleFillSymbol.STYLE_NULL, new esri.symbol.SimpleLineSymbol(esri.symbol.SimpleLineSymbol.STYLE_SOLID, new dojo.Color([0,0,255]), 4), new dojo.Color([0,0,0,0.25]));
   renderer = new SimpleRenderer(symbol);
 
-  map.on("extent-change", function() {
-    console.log("zooom")
-    // map.infoWindow.hide();
-  });
 
   /**
   *  Initialize Map with dynamic layers
@@ -132,35 +116,11 @@ query, domReady, connect
     imageParameters.layerIds = [0,1,2,3];
     imageParameters.layerOption = ImageParameters.LAYER_OPTION_SHOW;
 
-    dynamicMapServiceLayer = new ArcGISDynamicMapServiceLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer", {
+    dynamicMapServiceLayer = new ArcGISDynamicMapServiceLayer("https://sfplanninggis.org/arcgiswa/rest/services/Tobacco/MapServer", {
       "opacity" : 0.75,
       "imageParameters" : imageParameters
     });
 
-    infoTemplate = new InfoTemplate();
-    infoTemplate.setTitle("<b>Tobacco Permit Location</b>");
-    infoTemplate.setContent("NAME: ${Trade_Name} <br> LOCATION: ${Situs_Location}");
-  
-    tobaccoPointLayer = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/0",
-    {
-      infoTemplate: infoTemplate,
-      outFields: ["*"]
-    });
-
-    schoolLayer = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/3",
-    {});
-
-    parcelLayer1 = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/1",
-    {});
-
-    parcelLayer2 = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/2",
-    {});
-    
-    // Manually add first layer to allow easy popup 
-    // map.addLayer(tobaccoPointLayer)
-    // map.addLayer(parcelLayer1)
-    // map.addLayer(parcelLayer2)
-    // map.addLayer(schoolLayer)
     map.addLayer(dynamicMapServiceLayer);
   }
 
@@ -169,121 +129,67 @@ query, domReady, connect
   */
   function mapReady() {
     map.on("click", executeIdentifyTask);
-    var parcelsURL = "https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer"
+    var parcelsURL = "https://sfplanninggis.org/arcgiswa/rest/services/Tobacco/MapServer"
     identifyTask = new IdentifyTask(parcelsURL);
 
     identifyParams = new IdentifyParameters;
-    identifyParams.tolerance = 10;
+    identifyParams.tolerance = 0;
     identifyParams.returnGeometry = true;
-    identifyParams.layerIds = [0, 2];
+    identifyParams.layerIds = [2];
     identifyParams.layerOption = IdentifyParameters.LAYER_OPTION_ALL;
     identifyParams.width = map.width;
     identifyParams.height = map.height;
   }
 
   function executeIdentifyTask(clickEvent) {
+    callLoadSpinner();
 
+    var pointGeometry, symbol, pointGraphic
 
     identifyParams.geometry = clickEvent.mapPoint;
     identifyParams.mapExtent = map.extent;
 
-    // var deferred = identifyTask
-    //   .execute(identifyParams, function (response) {
-    //     var idResults = response;
-    //     for (var i = 0; i < idResults.length; i++) {
-    //       var result = idResults[i];
-          
-    //       if(result.layerId == 0)
-    //       {
-    //         break;
-    //       }
-    //       else if (result.layerName === "Parcels") {
-    //         callLoadSpinner();
-
-    //         var parcelValue = result.value;
-    //         showAddress(parcelValue);
-    //         isParcel = true;
-    //         break;
-    //       }
-    //     }
-    //   });
-
     var deferred = identifyTask
-    .execute(identifyParams)
-    .addCallback(function (response) {
-      console.log("testing")
+      .execute(identifyParams, function (response) {
+        var idResults = response;
 
-      // response is an array of identify result objects
-      // Let's return an array of features.
-      console.log(response)
-      arrayUtils.map(response, function (result) {
-        console.log("inside")
-
-        var feature = result.feature;
-        var layerName = result.layerName;
-        console.log("layername is" + layerName)
-        feature.attributes.layerName = layerName;
-        //console.log(layerName)
-          if(result.layerId == 0){
-            console.log("you clicked on a point")
-            var thePopUp = new InfoTemplate("testing",
-            "testing");
-            //thePopup.setTitle("${NEIGHBORHOOD }")
-            feature.setInfoTemplate(thePopUp);
-            return feature;
-          }
-          else if (result.layerName === "Parcels") {
-            callLoadSpinner();
-
-            var parcelValue = result.value;
-            showAddress(parcelValue);
+        for (var i = 0; i < idResults.length; i++) {
+          var result = idResults[i];
+          var parcelValue = result.value;
+          if (result.layerName === "Parcels") {
             isParcel = true;
             break;
           }
-        });
-    });
-    map.infoWindow.setFeatures([deferred]);
-    map.infoWindow.show(clickEvent.mapPoint);
+        }
+        showAddress(parcelValue);
+      });
   }
 
   /**
   *  Handle unchecking and checking checkbox to remove/add dynamic layers
   */
-  function updateLayerVisibility(event){
-    var layer = event.target
-    if(layer.value == "0") {
-      if(layer.checked == false) 
-        map.removeLayer(tobaccoPointLayer)
-      else
-      map.addLayer(tobaccoPointLayer)
-    } else if (layer.value == "3") {
-      if(layer.checked == false) 
-        map.removeLayer(schoolLayer)
-      else
-        map.addLayer(schoolLayer)
+  function updateLayerVisibility(){
+    var temp = $('.list_item')
+    var inputs = query(temp)
+
+    var inputCount = inputs.length;
+    visibleLayerIds = [0,1,2,3];
+
+    for (var i = 0; i < inputCount; i++) {
+      if (!inputs[i].checked) {
+        theLayerID=parseInt(inputs[i].value)
+        visibleLayerIds.splice(visibleLayerIds.indexOf(theLayerID), 1);
+      }
     }
-    // var temp = $('.list_item')
-    // var inputs = query(temp)
-
-    // var inputCount = inputs.length;
-    // visibleLayerIds = [0,1,2,3];
-
-    // for (var i = 0; i < inputCount; i++) {
-    //   if (!inputs[i].checked) {
-    //     theLayerID=parseInt(inputs[i].value)
-    //     visibleLayerIds.splice(visibleLayerIds.indexOf(theLayerID), 1);
-    //   }
-    // }
-    // if (visibleLayerIds.length === 0) {
-    //   visibleLayerIds.push(-1);
-    // }
-    // dynamicMapServiceLayer.setVisibleLayers(visibleLayerIds);
+    if (visibleLayerIds.length === 0) {
+      visibleLayerIds.push(-1);
+    }
+    dynamicMapServiceLayer.setVisibleLayers(visibleLayerIds);
   }
 
   /**
   *  limits the searches to once every 3 seconds, otherwise they can stack up
   */
-
   function throttleSubmit(myAdd) {
     // Boolean to check if clicking or parcel or entering a address in the input box
     if (new Date() - lastCall < 3000) return false;
@@ -295,7 +201,6 @@ query, domReady, connect
   }
 
   function showAddress(address) {
-    console.log("address is");
     geocodeSF(address);
   }
 
@@ -307,6 +212,8 @@ query, domReady, connect
       cancelSpinner();
 
       jsonData = JSON.parse(data);
+      console.log(jsonData)
+
       if (data['error']) {
           console.error('Geocode failed: ' + data['error'].message);
           return;
@@ -446,7 +353,7 @@ query, domReady, connect
 
   	var ptemplate = new esri.tasks.PrintTemplate();
   	ptemplate.preserveScale = true;
-  	ptemplate.showAttribution = false;
+  	ptemplate.showAttribution=false;
     var maxWidth = screen.width;
     var maxHeight = screen.height;
   	ptemplate.exportOptions = {width: 750, height: 750, dpi: 96  };
@@ -460,6 +367,7 @@ query, domReady, connect
   function printResultCallback(result) {
     var returnURL = result.url;
     printHTML+="<img src='" + returnURL +"'>"
+    console.log("apiReturnAddresss is " + apiReturnAddresss)
 
     var myWindow = window.open('', 'PRINT');
     var printHTML = "<!DOCTYPE html>";
