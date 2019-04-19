@@ -91,12 +91,23 @@ html, body, #map {
 #key-symbol-2{
   height: 25px;
   width: 25px;
-  /* 0, 112, 255 */
-  border: 2px rgb(247, 112, 8) solid;
-  border-radius: 50%;
-  background-color: rgb(247, 112, 8);
+  border: 2px rgb(225, 85, 0) solid;
+  background-color: rgb(225, 85, 0);
   -webkit-print-color-adjust: exact;
-  /* 247, 112, 8 */
+  position: relative;
+}
+
+.dot-inside{
+  height: 10px;
+  width: 10px;
+  border-radius: 50%;
+  border: 2px rgb(0, 0, 0) solid;
+  background-color: rgb(0, 0, 0);
+  -webkit-print-color-adjust: exact;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 #key-symbol-3{

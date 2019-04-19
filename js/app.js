@@ -50,6 +50,8 @@ require([
 "esri/dijit/BasemapToggle",
 "esri/renderers/SimpleRenderer",
 "esri/SpatialReference",
+"esri/tasks/query",
+"esri/tasks/QueryTask",
 
 "dojo/dom-construct",
 "dojo/query",
@@ -61,7 +63,7 @@ BufferParameters,SimpleFillSymbol,SimpleLineSymbol, PictureMarkerSymbol, Identif
 IdentifyParameters, Popup, PopupTemplate, FeatureLayer, Graphic, normalizeUtils, Point,
 SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, LabelClass, Print, PrintTask, PrintParameters, Color, TextSymbol,
 Query, arrayUtils, array,
-ImageParameters, BasemapToggle, SimpleRenderer, SpatialReference, domConstruct,
+ImageParameters, BasemapToggle, SimpleRenderer, SpatialReference, query, QueryTask, domConstruct,
 query, domReady, connect
 ) {
   var identifyTask, identifyParams, apiReturnAddresss, isParcel, popup, map, tobaccoPointLayer, schoolLayer, infoTemplate;
@@ -76,11 +78,10 @@ query, domReady, connect
 		proxyUrl: "//" + theServerName + "/proxy/DotNet/proxy.ashx"
   });
   
-
   popup = new Popup({
     fillSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID,
       new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID,
-        new Color([255, 0, 0]), 2), new Color([0, 255, 0, 0.25]))
+        new Color([0, 0, 0]), 2), new Color([125, 125, 125, 0.25]))
   }, domConstruct.create("div"));
 
   map = new Map("map", {
@@ -89,21 +90,21 @@ query, domReady, connect
     zoom: 12,
     showLabels: true,
     infoWindow: popup,
-    isReference: true
   });
-
-
 
   initializeMap();
 
+  $('#map').on("mousedown", function() {
+    map.enableMapNavigation();
+  })
+
   $('#addressInput').on("keyup", function(event){
     event.preventDefault();
-    if(event.keyCode === 13) throttleSubmit($('#addressInput').val())
+    if(event.keyCode === 13) {
+      throttleSubmit($('#addressInput').val());
+    }
   });
 
-
-  // $('#layer0CheckBox').on("change", updateLayerVisibility)
-  // $('#layer3CheckBox').on("change", updateLayerVisibility)
   $(".list_item").on("change", updateLayerVisibility)
 
 
@@ -113,55 +114,33 @@ query, domReady, connect
   renderer = new SimpleRenderer(symbol);
 
   map.on("extent-change", function() {
-    console.log("zooom")
-    // map.infoWindow.hide();
+    map.infoWindow.hide();
   });
+
+  dynamicMapServiceLayer.on("update-start", function() {
+    callLoadSpinner();
+  });
+
+  dynamicMapServiceLayer.on("update-end", function() {
+    cancelSpinner();
+  })
 
   /**
   *  Initialize Map with dynamic layers
   */
   function initializeMap(){
-    $('input').focus(function () {
-        map.disableMapNavigation();
-    });
-
-    $('input').blur(function () {
-        map.enableMapNavigation();
-    });
+    map.disableKeyboardNavigation();
+    
     imageParameters = new ImageParameters();
-    imageParameters.layerIds = [0,1,2,3];
+    imageParameters.layerIds = [0,1,2,3,4,5,6,7,8,9];
     imageParameters.layerOption = ImageParameters.LAYER_OPTION_SHOW;
 
     dynamicMapServiceLayer = new ArcGISDynamicMapServiceLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer", {
       "opacity" : 0.75,
       "imageParameters" : imageParameters
     });
-
-    infoTemplate = new InfoTemplate();
-    infoTemplate.setTitle("<b>Tobacco Permit Location</b>");
-    infoTemplate.setContent("NAME: ${Trade_Name} <br> LOCATION: ${Situs_Location}");
-  
-    tobaccoPointLayer = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/0",
-    {
-      infoTemplate: infoTemplate,
-      outFields: ["*"]
-    });
-
-    schoolLayer = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/3",
-    {});
-
-    parcelLayer1 = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/1",
-    {});
-
-    parcelLayer2 = new FeatureLayer("https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer/2",
-    {});
-    
-    // Manually add first layer to allow easy popup 
-    // map.addLayer(tobaccoPointLayer)
-    // map.addLayer(parcelLayer1)
-    // map.addLayer(parcelLayer2)
-    // map.addLayer(schoolLayer)
     map.addLayer(dynamicMapServiceLayer);
+
   }
 
   /*
@@ -169,115 +148,98 @@ query, domReady, connect
   */
   function mapReady() {
     map.on("click", executeIdentifyTask);
+
     var parcelsURL = "https://" + theServerName + "/arcgiswa/rest/services/Tobacco/MapServer"
     identifyTask = new IdentifyTask(parcelsURL);
 
     identifyParams = new IdentifyParameters;
-    identifyParams.tolerance = 10;
+    identifyParams.tolerance = 4;
     identifyParams.returnGeometry = true;
-    identifyParams.layerIds = [0, 2];
+    identifyParams.layerIds = [0, 1, 2, 3];
     identifyParams.layerOption = IdentifyParameters.LAYER_OPTION_ALL;
     identifyParams.width = map.width;
     identifyParams.height = map.height;
   }
 
   function executeIdentifyTask(clickEvent) {
-
-
     identifyParams.geometry = clickEvent.mapPoint;
     identifyParams.mapExtent = map.extent;
+    callLoadSpinner();
 
-    // var deferred = identifyTask
-    //   .execute(identifyParams, function (response) {
-    //     var idResults = response;
-    //     for (var i = 0; i < idResults.length; i++) {
-    //       var result = idResults[i];
-          
-    //       if(result.layerId == 0)
-    //       {
-    //         break;
-    //       }
-    //       else if (result.layerName === "Parcels") {
-    //         callLoadSpinner();
+    identifyTask.execute(identifyParams, function(results) {
 
-    //         var parcelValue = result.value;
-    //         showAddress(parcelValue);
-    //         isParcel = true;
-    //         break;
-    //       }
-    //     }
-    //   });
-
-    var deferred = identifyTask
-    .execute(identifyParams)
-    .addCallback(function (response) {
-      console.log("testing")
-
-      // response is an array of identify result objects
-      // Let's return an array of features.
-      console.log(response)
-      arrayUtils.map(response, function (result) {
-        console.log("inside")
-
-        var feature = result.feature;
-        var layerName = result.layerName;
-        console.log("layername is" + layerName)
-        feature.attributes.layerName = layerName;
-        //console.log(layerName)
-          if(result.layerId == 0){
-            console.log("you clicked on a point")
-            var thePopUp = new InfoTemplate("testing",
-            "testing");
-            //thePopup.setTitle("${NEIGHBORHOOD }")
-            feature.setInfoTemplate(thePopUp);
-            return feature;
-          }
-          else if (result.layerName === "Parcels") {
-            callLoadSpinner();
-
-            var parcelValue = result.value;
-            showAddress(parcelValue);
-            isParcel = true;
-            break;
-          }
-        });
-    });
-    map.infoWindow.setFeatures([deferred]);
-    map.infoWindow.show(clickEvent.mapPoint);
+      if (results.length !== 0) {
+        if (results[0].layerName === "Parcels") {
+          var parcelValue = results[0].value;
+          showAddress(parcelValue)
+        } else if(results[0].layerName !== "Tobacco_Permit_Parcel" ) {
+              var deferred = identifyTask
+              .execute(identifyParams)
+              .addCallback(function (response) {
+                for (var i = 0; i < response.length; i++) {
+                  var currentResult = response[i];
+                  var feature = currentResult.feature;
+                  layerName = currentResult.layerName;
+                  if (layerName === "SchoolsPublicPrivateDec2015") {
+                    clickedOnTobaccoPoint = true;
+                    var thePopUp = new InfoTemplate("School",
+                    "SCHOOL NAME: ${CAMPUS_NAME}");
+                    feature.setInfoTemplate(thePopUp);
+                    break;
+                  } else if (layerName === "Tobacco Permit Points") {
+                    clickedOnTobaccoPoint = true;
+                    var thePopUp = new InfoTemplate("Tobacco Permit Location",
+                    "TRADE NAME: ${Trade_Name} <br> ADDRESS: ${ARC_Street}");
+                    feature.setInfoTemplate(thePopUp);
+                    break;
+                  } 
+                }
+                cancelSpinner();
+                return [feature]; 
+              });
+              map.infoWindow.setFeatures([deferred]);
+              map.infoWindow.show(clickEvent.mapPoint);
+        } else if (results[0].layerName === "Tobacco_Permit_Parcel") {
+          var parcelValue = results[0].feature.attributes.blklot;
+          // console.log(results[0])
+          showAddress(parcelValue)
+        } 
+      } else {
+        cancelSpinner()
+        map.infoWindow.setTitle("Try again");
+        map.infoWindow.setContent("Nothing to identify here, please try another location");
+        map.infoWindow.show(clickEvent.mapPoint, map.getInfoWindowAnchor(clickEvent.screenPoint));
+      }
+    }); 
   }
+
 
   /**
   *  Handle unchecking and checking checkbox to remove/add dynamic layers
   */
   function updateLayerVisibility(event){
-    var layer = event.target
-    if(layer.value == "0") {
-      if(layer.checked == false) 
-        map.removeLayer(tobaccoPointLayer)
-      else
-      map.addLayer(tobaccoPointLayer)
-    } else if (layer.value == "3") {
-      if(layer.checked == false) 
-        map.removeLayer(schoolLayer)
-      else
-        map.addLayer(schoolLayer)
+
+    var temp = $('.list_item')
+    var inputs = query(temp)
+    var inputCount = inputs.length;
+    var visibleLayerIds = [0,1,2,3,4,5,6,7,8,9];
+
+    for (var i = 0; i < inputCount; i++) {
+      if (!inputs[i].checked) {
+        theLayerID=parseInt(inputs[i].value)
+        
+        if(theLayerID === 0){
+          // remove tobacco parcel and tobacco point label layers
+          visibleLayerIds.splice(visibleLayerIds.indexOf(1), 1);
+          visibleLayerIds.splice(visibleLayerIds.indexOf(9), 1);
+        }
+        visibleLayerIds.splice(visibleLayerIds.indexOf(theLayerID), 1);
+      }
     }
-    // var temp = $('.list_item')
-    // var inputs = query(temp)
-
-    // var inputCount = inputs.length;
-    // visibleLayerIds = [0,1,2,3];
-
-    // for (var i = 0; i < inputCount; i++) {
-    //   if (!inputs[i].checked) {
-    //     theLayerID=parseInt(inputs[i].value)
-    //     visibleLayerIds.splice(visibleLayerIds.indexOf(theLayerID), 1);
-    //   }
-    // }
-    // if (visibleLayerIds.length === 0) {
-    //   visibleLayerIds.push(-1);
-    // }
-    // dynamicMapServiceLayer.setVisibleLayers(visibleLayerIds);
+    if (visibleLayerIds.length === 0) {
+      visibleLayerIds.push(-1);
+    }
+    dynamicMapServiceLayer.setVisibleLayers(visibleLayerIds);
   }
 
   /**
@@ -295,13 +257,12 @@ query, domReady, connect
   }
 
   function showAddress(address) {
-    console.log("address is");
     geocodeSF(address);
   }
 
   function geocodeSF(address){
-
     var url = 'https://sfplanninggis.org/cpc_geocode/?search=';
+    map.infoWindow.hide();
 
     $.get(url + address, function (data){
       cancelSpinner();
@@ -312,9 +273,9 @@ query, domReady, connect
           return;
       }
       if (jsonData.features && jsonData.features.length > 0) {
-        var currAddress = jsonData.features[0].attributes.ADDRESSSIMPLE;
 
         if (theTempLayer) map.removeLayer(theTempLayer)
+
         if (jsonData.fieldAliases.ADDRESSSIMPLE) {
           isParcel = false;
           apiReturnAddresss = jsonData.features[0].attributes.ADDRESSSIMPLE;
@@ -322,15 +283,43 @@ query, domReady, connect
           apiReturnAddresss = jsonData.features[0].attributes.blklot;
           isParcel = true;
         }
-
         addTempLayer(jsonData);
       } else {
-          alert("Sorry, I can't find the location clicked or entered" );
+        // No result from CPC_Geocoder: Do an additional search with the data they provided us
+        var capitalizeAddress = address.toUpperCase().trim();
+
+        if (!capitalizeAddress.match(/[a-zA-Z]/g)) {
+          alert("Sorry, I can't find the location clicked or entered");
+          return;
+        } else {
+          var itemsToRemoveFromAddress = [', SF', ', SAN FRANCISCO, CA', ', SAN FRANCISCO CA', ' SAN FRANCISCO CA', ', CALIFORNIA',
+            ', CA', ',', ' SAN FRANCISCO CA', ' SAN FRANCISCO', ' STREET', ' CA', ' SF'];
+
+          itemsToRemoveFromAddress.forEach(function (item) {
+            capitalizeAddress = capitalizeAddress.replace(item, '');
+          });
+
+          var tobaccoParcelLayerURL = "http://sfplanninggis.org/arcgiswa/rest/services/Tobacco/MapServer/1";
+          var queryTask = new QueryTask(
+            tobaccoParcelLayerURL
+          )
+          console.log("Cleaned address is " + capitalizeAddress)
+          var query = new Query();
+          query.where = "Situs_Loca LIKE '" + capitalizeAddress + "%'";
+          query.returnGeometry = true;
+          queryTask.execute(query, function (returnData) {
+            if (returnData.features.length > 0) {
+              addTempLayer(returnData)
+            } else {
+              alert("Sorry, I can't find the location clicked or entered");
+            }
+          });
+        }
       }
     }).fail(function(){
         console.log("Error");
         alert("Sorry, there has been an error.  If this continues please email mike.wynne@sfgov.org and include the website's URL and what you searched for.");
-      });
+    });
   }
 
   /**
@@ -338,13 +327,10 @@ query, domReady, connect
   */
   function addTempLayer(data){
 
-    // console.log(data)
     var newFeature = new esri.tasks.FeatureSet();
     var features = [];
     newFeature.features = features;
-
     for(var i = 0; i < data.features.length; i++){
-      // console.log(data.feature[i])
       features.push(data.features[i]);
     }
     newFeature.geometryType = data.geometryType;
@@ -361,9 +347,6 @@ query, domReady, connect
         },
         outFields: ["*"]
       });
-
-      // Does not work when newFeature.features[0].geometry is declared to a variable
-      // but works when given
       drawBuffer(newFeature.features[0].geometry);
     }
     var statesColor = new Color("#000000");
@@ -379,7 +362,6 @@ query, domReady, connect
 
     theTempLayer.setLabelingInfo([labelClass]);
 
-    // theTempLayer.setRenderer(renderer)
     map.addLayer(theTempLayer)
   }
 
@@ -388,8 +370,6 @@ query, domReady, connect
   */
   function drawBuffer(geoData){
     var bufferDistance;
-    var correctionFactor;
-    var correctedBufferDistance = bufferDistance * correctionFactor;
     var params;
     var symbol;
     var bufferDistance = ["634.5"];
@@ -437,9 +417,8 @@ query, domReady, connect
 
   $('#print').on('click', function() {
     callLoadSpinner();
-	  //console.log(dynamicMap.visibleLayers)
   	var theprintparams = new esri.tasks.PrintParameters();
-  	theprintparams.map =map;
+  	theprintparams.map = map;
 
   	var theprinturl="https://sfplanninggis.org/arcgiswa/rest/services/SecurePrinting5/GPServer/Export%20Web%20Map";
   	var theprintTask = new esri.tasks.PrintTask(theprinturl);
@@ -447,13 +426,8 @@ query, domReady, connect
   	var ptemplate = new esri.tasks.PrintTemplate();
   	ptemplate.preserveScale = true;
   	ptemplate.showAttribution = false;
-    var maxWidth = screen.width;
-    var maxHeight = screen.height;
-  	ptemplate.exportOptions = {width: 750, height: 750, dpi: 96  };
 
-  	//var printMapHeight=$('#map_container').height();
-  	//var printMapWidth=$('#map_container').width();
-  	//ptemplate.exportOptions = {width: printMapWidth, height: printMapHeight, dpi: 96  };
+  	ptemplate.exportOptions = {width: 750, height: 750, dpi: 96  };
     theprintparams.template = ptemplate;
   	theprintTask.execute(theprintparams, printResultCallback,printResultCallbackError);
   });
@@ -476,7 +450,7 @@ query, domReady, connect
       printHTML+="</head>"
 
       printHTML+="<div id='printTitle'>"
-      printHTML+= "<b> Tobacco Permit Map For - ";
+      printHTML+= "<b> Retail Tobacco Sales Permit Density - ";
       if (isParcel) {
         printHTML += "Block Lot "
       }
@@ -488,15 +462,18 @@ query, domReady, connect
       printHTML+="<div class='legend-element'>"
       printHTML+="<div id='key-symbol-1'>"
       printHTML+="</div>"
-      printHTML+="<div id='key-phrase-1'>Public and Private Schools</div>"
+      printHTML+="<div id='key-phrase-1'>Public or Private School</div>"
       printHTML+="</div>"
 
       printHTML+="<br />"
       printHTML+="<div class='legend-element'>"
       printHTML+= "<div id='key-symbol-2'>"
+      printHTML+= "<div class='dot-inside'>"
+
+      printHTML+= "</div>"
       printHTML+= "</div>"
       printHTML+= "<div id='key-phrase-2'>"
-      printHTML+=   "Tobacco Permitted Retail"
+      printHTML+=   "Active Tobacco Sales Permit"
       printHTML+= "</div>"
       printHTML+="</div>"
 
@@ -516,7 +493,7 @@ query, domReady, connect
       printHTML+=   "<hr>"
       printHTML+= "</div>"
       printHTML+= "<div id='key-phrase-4'>"
-      printHTML+=   "500 feet radius"
+      printHTML+=   "500-foot radius"
       printHTML+= "</div>"
       printHTML+="</div>"
 
